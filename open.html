@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Open in Obsidian</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; padding: 24px; line-height: 1.5; }
+    code { word-break: break-all; }
+    a.btn { display:inline-block; padding: 10px 14px; border:1px solid #ccc; border-radius:10px; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <h1>Obsidian 열기</h1>
+  <p id="status">링크 생성 중…</p>
+
+  <p><a id="openBtn" class="btn" href="#">Obsidian에서 열기</a></p>
+  <p style="color:#666;">iOS에서 자동 전환이 막히면 위 버튼을 한 번 더 눌러주세요.</p>
+
+  <p><strong>디버그</strong><br/><code id="dbg"></code></p>
+
+  <script>
+    // Security model:
+    // - vault is FIXED
+    // - redirect target is FIXED to obsidian://open
+    // - requires a shared key (?k=...)
+    // - file path is validated (no protocol, no traversal)
+
+    const VAULT = "OpenClaw-Sido";
+    const REQUIRED_KEY = "kWZnoFY5CN8m3Ql";
+
+    function q(name) {
+      const u = new URL(location.href);
+      return u.searchParams.get(name);
+    }
+
+    function isSafeRelativePath(p) {
+      if (!p) return false;
+      // block protocols like http:, obsidian:, file:
+      if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(p)) return false;
+      // block traversal
+      if (p.includes("..")) return false;
+      // block backslashes
+      if (p.includes("\\")) return false;
+      // keep it simple: must end with .md (you can loosen later)
+      if (!p.endsWith(".md")) return false;
+      return true;
+    }
+
+    const key = q("k");
+    const fileRaw = q("file");
+
+    if (key !== REQUIRED_KEY) {
+      document.getElementById("status").textContent = "키(k)가 없거나 올바르지 않습니다.";
+      document.getElementById("dbg").textContent = location.href;
+    } else if (!fileRaw) {
+      document.getElementById("status").textContent = "file 파라미터가 없습니다.";
+      document.getElementById("dbg").textContent = "예: ?file=path/to/note.md&k=...";
+    } else {
+      let decodedFile;
+      try {
+        decodedFile = decodeURIComponent(fileRaw);
+      } catch (e) {
+        decodedFile = fileRaw;
+      }
+
+      if (!isSafeRelativePath(decodedFile)) {
+        document.getElementById("status").textContent = "안전하지 않은 file 경로입니다.";
+        document.getElementById("dbg").textContent = decodedFile;
+      } else {
+        const obsidianUrl =
+          "obsidian://open?vault=" + encodeURIComponent(VAULT) +
+          "&file=" + encodeURIComponent(decodedFile);
+
+        const btn = document.getElementById("openBtn");
+        btn.href = obsidianUrl;
+
+        document.getElementById("status").textContent = "Obsidian으로 여는 중…";
+        document.getElementById("dbg").textContent = obsidianUrl;
+
+        setTimeout(() => { location.href = obsidianUrl; }, 50);
+      }
+    }
+  </script>
+</body>
+</html>
